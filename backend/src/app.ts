@@ -18,6 +18,11 @@ import { emailQueue } from "./queue/emailQueue";
 export function createApp() {
   const app = express();
 
+  // Render (and most PaaS hosts) terminate TLS at a reverse proxy in front
+  // of the app -- without this, Express can't tell the request was actually
+  // HTTPS, and secure cookies would silently never get set.
+  app.set("trust proxy", 1);
+
   app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
   // 15mb accommodates base64-encoded email attachments (see campaignService's
   // own tighter per-file/total caps, which produce a clearer 400 than a bare 413).
