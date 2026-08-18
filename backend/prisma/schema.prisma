@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EmailStatus {
+  SCHEDULED
+  PROCESSING
+  SENT
+  FAILED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  googleId  String   @unique
+  email     String   @unique
+  name      String
+  avatarUrl String?
+  createdAt DateTime @default(now())
+
+  senders   Sender[]
+  campaigns Campaign[]
+}
+
+model Sender {
+  id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
+  smtpHost    String
+  smtpPort    Int
+  smtpUser    String
+  smtpPass    String
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  campaigns Campaign[]
+  emails    Email[]
+}
+
+model Campaign {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  senderId        String
+  sender          Sender   @relation(fields: [senderId], references: [id])
+  subject         String
+  body            String
+  startAt         DateTime
+  delayBetweenMs  Int
+  hourlyLimit     Int?
+  totalRecipients Int
+  createdAt       DateTime @default(now())
+
+  emails Email[]
+}
+
+model Email {
+  id            String      @id @default(uuid())
+  campaignId    String
+  campaign      Campaign    @relation(fields: [campaignId], references: [id])
+  senderId      String
+  sender        Sender      @relation(fields: [senderId], references: [id])
+  toAddress     String
+  subject       String
+  body          String
+  sequenceIndex Int
+  scheduledAt   DateTime
+  status        EmailStatus @default(SCHEDULED)
+  attempts      Int         @default(0)
+  lastError     String?
+  sentAt        DateTime?
+  previewUrl    String?
+  jobId         String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([campaignId, toAddress])
+  @@index([status, scheduledAt])
+  @@index([campaignId])
+}
