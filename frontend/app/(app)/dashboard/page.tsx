@@ -5,12 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { EmailTable } from "@/components/dashboard/EmailTable";
+import { EmailDetailView } from "@/components/dashboard/EmailDetailView";
 import { ComposeOverlay } from "@/components/compose/ComposeOverlay";
 
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [composeOpen, setComposeOpen] = useState(false);
+  const [openEmailId, setOpenEmailId] = useState<string | null>(null);
 
   const activeTab = searchParams.get("tab") === "sent" ? "sent" : "scheduled";
 
@@ -28,8 +30,15 @@ function DashboardContent() {
             onTabChange={setActiveTab}
             onCompose={() => setComposeOpen(true)}
           />
-          <EmailTable variant={activeTab} onCompose={() => setComposeOpen(true)} />
+          <EmailTable
+            variant={activeTab}
+            onCompose={() => setComposeOpen(true)}
+            onOpenEmail={setOpenEmailId}
+          />
           {composeOpen && <ComposeOverlay onClose={() => setComposeOpen(false)} />}
+          {openEmailId && (
+            <EmailDetailView emailId={openEmailId} onClose={() => setOpenEmailId(null)} />
+          )}
         </div>
       )}
     </AuthGuard>

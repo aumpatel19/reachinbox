@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, Inbox, RefreshCcw, Search, AlertTriangle } from "lucide-react";
+import { Eye, Inbox, RefreshCcw, Search, AlertTriangle } from "lucide-react";
 import { Table, type Column } from "@/components/ui/Table";
 import { StatusBadge } from "@/components/ui/Badge";
 import { SkeletonRows } from "@/components/ui/Skeleton";
@@ -15,9 +15,10 @@ import type { EmailRow } from "@/types/api";
 export interface EmailTableProps {
   variant: "scheduled" | "sent";
   onCompose: () => void;
+  onOpenEmail: (id: string) => void;
 }
 
-export function EmailTable({ variant, onCompose }: EmailTableProps) {
+export function EmailTable({ variant, onCompose, onOpenEmail }: EmailTableProps) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
 
@@ -53,26 +54,26 @@ export function EmailTable({ variant, onCompose }: EmailTableProps) {
       key: "action",
       header: "",
       className: "whitespace-nowrap text-right",
-      render: (row) =>
-        row.previewUrl ? (
-          <a
-            href={row.previewUrl}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            Preview
-          </a>
-        ) : null,
+      render: (row) => (
+        <button
+          type="button"
+          aria-label="Preview email"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenEmail(row.id);
+          }}
+          className="text-zinc-300 hover:text-zinc-500"
+        >
+          <Eye className="h-[18px] w-[18px]" />
+        </button>
+      ),
     },
   ];
 
   return (
     <div className="flex-1">
       <div className="flex items-center gap-3 border-b border-zinc-100 px-6 py-4">
-        <div className="relative flex-1 max-w-md">
+        <div className="relative flex-1 max-w-2xl">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <input
             value={search}
@@ -109,7 +110,7 @@ export function EmailTable({ variant, onCompose }: EmailTableProps) {
         />
       ) : data && data.items.length > 0 ? (
         <>
-          <Table columns={columns} rows={data.items} rowKey={(row) => row.id} />
+          <Table columns={columns} rows={data.items} rowKey={(row) => row.id} onRowClick={(row) => onOpenEmail(row.id)} />
           <Pagination page={data.page} limit={data.limit} total={data.total} onPageChange={setPage} />
         </>
       ) : (
