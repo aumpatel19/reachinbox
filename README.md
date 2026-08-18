@@ -284,6 +284,27 @@ npm test
 
 ---
 
+## Deployment
+
+**Frontend → [Vercel](https://vercel.com)**, zero-config for Next.js.
+
+**Backend (API + worker) + Postgres + Redis → [Render](https://render.com)**, via the `render.yaml` Blueprint at the repo root — it defines the web service, database, and Redis instance in one file, so most of the setup is "New Blueprint → pick this repo" rather than manually configuring each piece.
+
+A deliberate adaptation for the free tier: Render's free plan doesn't offer a Background Worker service type at all, and free Web Services spin down after 15 minutes with no HTTP traffic. Rather than pay for a separate worker service, the API and worker are started as two child processes of one Render Web Service (`npm run start:combined`, via `concurrently`) — locally they're still two independent processes (`npm run dev` / `npm run worker`) exactly as described throughout this README; this is a deploy-time packaging choice, not an architecture change. To keep that one service from sleeping (which would pause the worker too), a free external uptime monitor (e.g. UptimeRobot) pings `/api/health` every 5 minutes — comfortably under the 15-minute idle timeout. If a sleep/restart ever does slip through anyway, boot reconciliation (already covered above) catches up anything that should have sent.
+
+Steps:
+1. Push to GitHub (already done).
+2. Render dashboard → **New → Blueprint** → select this repo. Render provisions the web service, Postgres, and Redis from `render.yaml`.
+3. Fill in the prompted secrets: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `FRONTEND_URL` (your Vercel URL, once you have it).
+4. Once deployed, note the service's `onrender.com` URL and update `GOOGLE_CALLBACK_URL` in Render's env vars if it differs from the default in `render.yaml`.
+5. Add that same callback URL to **Authorized redirect URIs** in Google Cloud Console.
+6. Deploy `frontend/` to Vercel, setting `NEXT_PUBLIC_API_URL` to the Render URL.
+7. Set up the free UptimeRobot monitor against `https://<your-render-url>/api/health`, 5-minute interval.
+
+Because the frontend and backend are on different domains in this setup, the session cookie is sent cross-site — `backend/src/auth/session.ts` sets `sameSite: "none"` (only in production; `"lax"` locally) together with `secure: true`, and `app.ts` sets `app.set("trust proxy", 1)` so Express correctly recognizes the request as HTTPS behind Render's proxy.
+
+---
+
 ## Assumptions & trade-offs
 
 - Rate limiting is **per-sender**, not global — the assignment allows either; per-sender was chosen because it maps directly onto real SMTP throttling behavior. A campaign's `hourlyLimit` can't exceed the env-wide cap.
@@ -296,6 +317,7 @@ npm test
 - Retry policy: 3 attempts with exponential backoff (5s base); failures beyond that are marked `FAILED` and stay visible in Sent.
 - **Archived / Deleted folders and file attachments** are not in the original assignment brief — they were added afterward as real, fully wired features (not mockups), using the same backend patterns (Prisma migrations, zod-validated routes, react-query hooks) as everything else.
 - Attachments are stored on the **Campaign** row (base64, capped at 11MB combined) rather than duplicated per recipient — correct for this scope, but would need object storage (S3-style) instead of a Postgres `Json` column for very large campaigns or larger files.
+- Render's free Postgres is deleted after 30 days (Render's own free-tier policy, not something this app controls) — fine for grading, not for a real deployment. Render's free Redis also has a small memory cap; BullMQ needs `maxmemory-policy: noeviction` (set in `render.yaml`) so Redis refuses new writes under pressure instead of silently evicting job data, rather than the default eviction behavior quietly dropping scheduled jobs.
 
 ---
 
