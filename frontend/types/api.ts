@@ -27,6 +27,7 @@ export interface EmailRow {
   status: EmailStatus;
   previewUrl: string | null;
   campaignId: string;
+  starred: boolean;
 }
 
 export interface EmailDetail {
@@ -44,6 +45,8 @@ export interface EmailDetail {
   sentAt: string | null;
   previewUrl: string | null;
   jobId: string;
+  starred: boolean;
+  archived: boolean;
   createdAt: string;
   updatedAt: string;
   sender: { email: string; name: string };

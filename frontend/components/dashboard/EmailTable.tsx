@@ -8,7 +8,7 @@ import { SkeletonRows } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { Button } from "@/components/ui/Button";
-import { useEmails } from "@/lib/queries";
+import { useEmails, useToggleStar } from "@/lib/queries";
 import { formatDateTime } from "@/lib/format";
 import type { EmailRow } from "@/types/api";
 
@@ -23,6 +23,7 @@ export function EmailTable({ variant, onCompose, onOpenEmail }: EmailTableProps)
   const [search, setSearch] = useState("");
 
   const { data, isLoading, isError, refetch, isFetching } = useEmails({ status: variant, page, search });
+  const toggleStar = useToggleStar();
 
   const columns: Column<EmailRow>[] = [
     {
@@ -57,14 +58,14 @@ export function EmailTable({ variant, onCompose, onOpenEmail }: EmailTableProps)
       render: (row) => (
         <button
           type="button"
-          aria-label="Preview email"
+          aria-label={row.starred ? "Unstar" : "Star"}
           onClick={(e) => {
             e.stopPropagation();
-            onOpenEmail(row.id);
+            toggleStar.mutate({ id: row.id, starred: !row.starred });
           }}
-          className="text-zinc-300 hover:text-zinc-500"
+          className={row.starred ? "text-amber-400" : "text-zinc-300 hover:text-zinc-500"}
         >
-          <Star className="h-[18px] w-[18px]" />
+          <Star className="h-[18px] w-[18px]" fill={row.starred ? "currentColor" : "none"} />
         </button>
       ),
     },

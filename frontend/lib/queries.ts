@@ -74,6 +74,38 @@ export function useEmails({ status, page, search }: UseEmailsParams) {
   });
 }
 
+export function useToggleStar() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, starred }: { id: string; starred: boolean }) =>
+      (await api.patch<{ data: EmailDetail }>(`/api/emails/${id}/star`, { starred })).data.data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["emails"] });
+    },
+  });
+}
+
+export function useArchiveEmail() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) =>
+      (await api.patch<{ data: EmailDetail }>(`/api/emails/${id}/archive`, { archived: true })).data.data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["emails"] });
+    },
+  });
+}
+
+export function useDeleteEmail() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => (await api.delete(`/api/emails/${id}`)).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["emails"] });
+    },
+  });
+}
+
 export function useCreateCampaign() {
   const queryClient = useQueryClient();
   return useMutation({

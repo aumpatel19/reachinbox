@@ -1,4 +1,5 @@
 import { prisma } from "../db/prisma";
+import { emailQueue } from "../queue/emailQueue";
 import type { Prisma } from "@prisma/client";
 
 export interface EmailRow {
@@ -10,6 +11,7 @@ export interface EmailRow {
   status: string;
   previewUrl: string | null;
   campaignId: string;
+  starred: boolean;
 }
 
 export interface ListEmailsParams {
@@ -64,6 +66,7 @@ export async function listEmails(params: ListEmailsParams): Promise<ListEmailsRe
       status: e.status,
       previewUrl: e.previewUrl,
       campaignId: e.campaignId,
+      starred: e.starred,
     })),
     total,
     page,
@@ -76,4 +79,24 @@ export async function getEmailById(id: string) {
     where: { id },
     include: { sender: { select: { email: true, name: true } } },
   });
+}
+
+export async function setStarred(id: string, starred: boolean) {
+  return prisma.email.update({ where: { id }, data: { starred } });
+}
+
+export async function setArchived(id: string, archived: boolean) {
+  return prisma.email.update({ where: { id }, data: { archived } });
+}
+
+export async function deleteEmail(id: string): Promise<void> {
+  const email = await prisma.email.findUnique({ where: { id }, select: { jobId: true } });
+  if (!email) return;
+
+  // Cancel any pending send before removing the row, so the worker never
+  // claims a job whose email no longer exists.
+  const job = await emailQueue.getJob(email.jobId);
+  if (job) await job.remove();
+
+  await prisma.email.delete({ where: { id } });
 }

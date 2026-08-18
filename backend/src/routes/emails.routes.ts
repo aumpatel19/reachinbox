@@ -1,5 +1,7 @@
 import { Router } from "express";
-import { listEmails, getEmailById } from "../services/emailService";
+import { z } from "zod";
+import { listEmails, getEmailById, setStarred, setArchived, deleteEmail } from "../services/emailService";
+import { validateBody } from "../middleware/validate";
 
 export const emailsRouter = Router();
 
@@ -25,6 +27,52 @@ emailsRouter.get("/:id", async (req, res, next) => {
       return;
     }
     res.json({ data: email });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const starSchema = z.object({ starred: z.boolean() });
+
+emailsRouter.patch("/:id/star", validateBody(starSchema), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ error: { code: "BAD_REQUEST", message: "Missing id" } });
+      return;
+    }
+    const email = await setStarred(id, req.body.starred);
+    res.json({ data: email });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const archiveSchema = z.object({ archived: z.boolean() });
+
+emailsRouter.patch("/:id/archive", validateBody(archiveSchema), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ error: { code: "BAD_REQUEST", message: "Missing id" } });
+      return;
+    }
+    const email = await setArchived(id, req.body.archived);
+    res.json({ data: email });
+  } catch (err) {
+    next(err);
+  }
+});
+
+emailsRouter.delete("/:id", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ error: { code: "BAD_REQUEST", message: "Missing id" } });
+      return;
+    }
+    await deleteEmail(id);
+    res.json({ data: { ok: true } });
   } catch (err) {
     next(err);
   }
