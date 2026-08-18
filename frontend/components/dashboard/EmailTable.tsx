@@ -1,15 +1,34 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Star, Inbox, RefreshCcw, Search, AlertTriangle, Archive, Trash2, RotateCcw } from "lucide-react";
+import {
+  Star,
+  Inbox,
+  RefreshCcw,
+  Search,
+  AlertTriangle,
+  Filter,
+  Archive,
+  Trash2,
+  RotateCcw,
+} from "lucide-react";
 import { Table, type Column } from "@/components/ui/Table";
 import { StatusBadge } from "@/components/ui/Badge";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { Button } from "@/components/ui/Button";
-import { useEmails, useToggleStar, useTrashEmail, usePermanentlyDeleteEmail } from "@/lib/queries";
+import { SortPopover, type SortOption } from "./SortPopover";
+import {
+  useEmails,
+  useToggleStar,
+  useTrashEmail,
+  usePermanentlyDeleteEmail,
+  type SortBy,
+  type SortDir,
+} from "@/lib/queries";
 import { formatDateTime } from "@/lib/format";
 import { getApiErrorMessage } from "@/lib/api";
 import type { EmailRow, Folder } from "@/types/api";
@@ -42,11 +61,41 @@ const EMPTY_STATE_COPY: Record<Folder, { title: string; description: string }> =
 export function EmailTable({ variant, onCompose, onOpenEmail }: EmailTableProps) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [sortOpen, setSortOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<SortBy>("date");
+  const [sortDir, setSortDir] = useState<SortDir>(variant === "scheduled" ? "asc" : "desc");
+  const [isSpinning, setIsSpinning] = useState(false);
 
-  const { data, isLoading, isError, refetch, isFetching } = useEmails({ status: variant, page, search });
+  const queryClient = useQueryClient();
+  const { data, isLoading, isError, refetch, isFetching } = useEmails({
+    status: variant,
+    page,
+    search,
+    sortBy,
+    sortDir,
+  });
   const toggleStar = useToggleStar();
   const trashEmail = useTrashEmail();
   const permanentlyDelete = usePermanentlyDeleteEmail();
+
+  function handleRefresh() {
+    // Refetch this table plus every other "emails" query (e.g. the sidebar's
+    // folder counts), which live under separate cache keys and otherwise
+    // wouldn't budge until their own 5s poll came around.
+    queryClient.invalidateQueries({ queryKey: ["emails"] });
+    // On localhost the round trip is a handful of ms -- too fast for
+    // isFetching's spin to actually be perceived. Hold it visible briefly
+    // so the click reads as having done something.
+    setIsSpinning(true);
+    setTimeout(() => setIsSpinning(false), 600);
+  }
+
+  function handleSortSelect(option: SortOption) {
+    setSortBy(option.sortBy);
+    setSortDir(option.sortDir);
+    setPage(1);
+    setSortOpen(false);
+  }
 
   async function handleRestore(id: string) {
     try {
@@ -165,13 +214,33 @@ export function EmailTable({ variant, onCompose, onOpenEmail }: EmailTableProps)
             className="w-full rounded-full bg-zinc-100 py-2.5 pl-10 pr-4 text-sm text-zinc-800 placeholder-zinc-400 outline-none focus:bg-white focus:ring-2 focus:ring-brand-100"
           />
         </div>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setSortOpen((v) => !v)}
+            className={`flex h-9 w-9 items-center justify-center rounded-full ${
+              sortOpen || sortBy !== "date" || sortDir !== (variant === "scheduled" ? "asc" : "desc")
+                ? "bg-brand-50 text-brand-700"
+                : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+            }`}
+            aria-label="Sort emails"
+          >
+            <Filter className="h-4 w-4" />
+          </button>
+          {sortOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setSortOpen(false)} />
+              <SortPopover value={{ sortBy, sortDir }} onSelect={handleSortSelect} variant={variant} />
+            </>
+          )}
+        </div>
         <button
           type="button"
-          onClick={() => refetch()}
+          onClick={handleRefresh}
           className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
           aria-label="Refresh"
         >
-          <RefreshCcw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+          <RefreshCcw className={`h-4 w-4 ${isFetching || isSpinning ? "animate-spin" : ""}`} />
         </button>
       </div>
 

@@ -23,8 +23,11 @@ emailsRouter.get("/", async (req, res, next) => {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
     const search = typeof req.query.search === "string" ? req.query.search : undefined;
+    const sortBy =
+      req.query.sortBy === "subject" || req.query.sortBy === "recipient" ? req.query.sortBy : "date";
+    const sortDir = req.query.sortDir === "asc" || req.query.sortDir === "desc" ? req.query.sortDir : undefined;
 
-    const result = await listEmails({ status, page, limit, search });
+    const result = await listEmails({ status, page, limit, search, sortBy, sortDir });
     res.json({ data: result });
   } catch (err) {
     next(err);

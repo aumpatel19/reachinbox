@@ -18,11 +18,16 @@ export interface EmailRow {
   updatedAt: string;
 }
 
+export type SortBy = "date" | "subject" | "recipient";
+export type SortDir = "asc" | "desc";
+
 export interface ListEmailsParams {
   status: Folder;
   page: number;
   limit: number;
   search?: string;
+  sortBy?: SortBy;
+  sortDir?: SortDir;
 }
 
 export interface ListEmailsResult {
@@ -46,7 +51,7 @@ function buildFolderWhere(folder: Folder): Prisma.EmailWhereInput {
 }
 
 export async function listEmails(params: ListEmailsParams): Promise<ListEmailsResult> {
-  const { status: folder, page, limit, search } = params;
+  const { status: folder, page, limit, search, sortBy = "date", sortDir } = params;
 
   const where: Prisma.EmailWhereInput = {
     ...buildFolderWhere(folder),
@@ -60,12 +65,19 @@ export async function listEmails(params: ListEmailsParams): Promise<ListEmailsRe
       : {}),
   };
 
+  const defaultDirection = sortBy === "date" ? (folder === "scheduled" ? "asc" : "desc") : "asc";
+  const direction = sortDir ?? defaultDirection;
+
   const orderBy: Prisma.EmailOrderByWithRelationInput =
-    folder === "scheduled"
-      ? { scheduledAt: "asc" }
-      : folder === "sent"
-        ? { sentAt: "desc" }
-        : { updatedAt: "desc" };
+    sortBy === "subject"
+      ? { subject: direction }
+      : sortBy === "recipient"
+        ? { toAddress: direction }
+        : folder === "scheduled"
+          ? { scheduledAt: direction }
+          : folder === "sent"
+            ? { sentAt: direction }
+            : { updatedAt: direction };
 
   const [items, total] = await Promise.all([
     prisma.email.findMany({

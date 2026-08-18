@@ -55,19 +55,24 @@ export function useEmail(id: string | null) {
   });
 }
 
+export type SortBy = "date" | "subject" | "recipient";
+export type SortDir = "asc" | "desc";
+
 export interface UseEmailsParams {
   status: Folder;
   page: number;
   search?: string;
+  sortBy?: SortBy;
+  sortDir?: SortDir;
 }
 
-export function useEmails({ status, page, search }: UseEmailsParams) {
+export function useEmails({ status, page, search, sortBy, sortDir }: UseEmailsParams) {
   return useQuery({
-    queryKey: ["emails", status, page, search],
+    queryKey: ["emails", status, page, search, sortBy, sortDir],
     queryFn: async () =>
       (
         await api.get<{ data: PaginatedResult<EmailRow> }>("/api/emails", {
-          params: { status, page, limit: 25, search: search || undefined },
+          params: { status, page, limit: 25, search: search || undefined, sortBy, sortDir },
         })
       ).data.data,
     refetchInterval: 5000,
