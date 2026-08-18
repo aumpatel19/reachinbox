@@ -43,12 +43,10 @@ export function ComposeOverlay({ onClose }: { onClose: () => void }) {
   const hiddenCount = recipients.length - visibleChips.length;
 
   function mergeRecipients(newOnes: string[], invalidInBatch: number) {
-    setRecipients((prev) => {
-      const combined = parseRecipientsFromText([...prev, ...newOnes].join("\n"));
-      const crossDupes = prev.length + newOnes.length - combined.emails.length;
-      setSkippedCount((prevSkipped) => prevSkipped + invalidInBatch + crossDupes);
-      return combined.emails;
-    });
+    const combined = parseRecipientsFromText([...recipients, ...newOnes].join("\n"));
+    const crossDupes = recipients.length + newOnes.length - combined.emails.length;
+    setRecipients(combined.emails);
+    setSkippedCount((prevSkipped) => prevSkipped + invalidInBatch + crossDupes);
   }
 
   function handleAddManualInput() {
