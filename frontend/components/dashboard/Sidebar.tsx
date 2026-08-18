@@ -2,18 +2,25 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Clock, LogOut, Send, ChevronDown } from "lucide-react";
+import { Archive, Clock, LogOut, Send, Trash2, ChevronDown } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { useEmails, useLogout } from "@/lib/queries";
-import type { User } from "@/types/api";
+import type { Folder, User } from "@/types/api";
 
 export interface SidebarProps {
   user: User;
-  activeTab: "scheduled" | "sent";
-  onTabChange: (tab: "scheduled" | "sent") => void;
+  activeTab: Folder;
+  onTabChange: (tab: Folder) => void;
   onCompose: () => void;
 }
+
+const NAV_ITEMS: { folder: Folder; label: string; icon: typeof Clock }[] = [
+  { folder: "scheduled", label: "Scheduled", icon: Clock },
+  { folder: "sent", label: "Sent", icon: Send },
+  { folder: "archived", label: "Archived", icon: Archive },
+  { folder: "deleted", label: "Deleted", icon: Trash2 },
+];
 
 export function Sidebar({ user, activeTab, onTabChange, onCompose }: SidebarProps) {
   const router = useRouter();
@@ -22,6 +29,15 @@ export function Sidebar({ user, activeTab, onTabChange, onCompose }: SidebarProp
 
   const scheduledCount = useEmails({ status: "scheduled", page: 1 }).data?.total ?? 0;
   const sentCount = useEmails({ status: "sent", page: 1 }).data?.total ?? 0;
+  const archivedCount = useEmails({ status: "archived", page: 1 }).data?.total ?? 0;
+  const deletedCount = useEmails({ status: "deleted", page: 1 }).data?.total ?? 0;
+
+  const counts: Record<Folder, number> = {
+    scheduled: scheduledCount,
+    sent: sentCount,
+    archived: archivedCount,
+    deleted: deletedCount,
+  };
 
   async function handleLogout() {
     await logout.mutateAsync();
@@ -68,32 +84,22 @@ export function Sidebar({ user, activeTab, onTabChange, onCompose }: SidebarProp
 
       <p className="mb-2 mt-8 px-2 text-xs font-medium tracking-wide text-zinc-400">CORE</p>
       <nav className="space-y-1">
-        <button
-          type="button"
-          onClick={() => onTabChange("scheduled")}
-          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-            activeTab === "scheduled"
-              ? "bg-brand-50 font-semibold text-brand-700"
-              : "text-zinc-600 hover:bg-zinc-50"
-          }`}
-        >
-          <Clock className="h-4 w-4" />
-          <span className="flex-1 text-left">Scheduled</span>
-          <span className="text-xs text-zinc-400">{scheduledCount}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onTabChange("sent")}
-          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-            activeTab === "sent"
-              ? "bg-brand-50 font-semibold text-brand-700"
-              : "text-zinc-600 hover:bg-zinc-50"
-          }`}
-        >
-          <Send className="h-4 w-4" />
-          <span className="flex-1 text-left">Sent</span>
-          <span className="text-xs text-zinc-400">{sentCount}</span>
-        </button>
+        {NAV_ITEMS.map(({ folder, label, icon: Icon }) => (
+          <button
+            key={folder}
+            type="button"
+            onClick={() => onTabChange(folder)}
+            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+              activeTab === folder
+                ? "bg-brand-50 font-semibold text-brand-700"
+                : "text-zinc-600 hover:bg-zinc-50"
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            <span className="flex-1 text-left">{label}</span>
+            <span className="text-xs text-zinc-400">{counts[folder]}</span>
+          </button>
+        ))}
       </nav>
     </aside>
   );

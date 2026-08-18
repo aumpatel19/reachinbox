@@ -1,35 +1,60 @@
 "use client";
 
 import { toast } from "sonner";
-import { ArrowLeft, Archive, ExternalLink, Loader2, Star, Trash2 } from "lucide-react";
+import { ArrowLeft, Archive, ArchiveRestore, ExternalLink, Loader2, RotateCcw, Star, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { StatusBadge } from "@/components/ui/Badge";
 import { formatDateTime } from "@/lib/format";
 import { getApiErrorMessage } from "@/lib/api";
-import { useArchiveEmail, useDeleteEmail, useEmail, useMe, useToggleStar } from "@/lib/queries";
+import { useArchiveEmail, useEmail, useMe, usePermanentlyDeleteEmail, useToggleStar, useTrashEmail } from "@/lib/queries";
 
 export function EmailDetailView({ emailId, onClose }: { emailId: string; onClose: () => void }) {
   const { data: email, isLoading, isError } = useEmail(emailId);
   const { data: me } = useMe();
   const toggleStar = useToggleStar();
   const archiveEmail = useArchiveEmail();
-  const deleteEmail = useDeleteEmail();
+  const trashEmail = useTrashEmail();
+  const permanentlyDelete = usePermanentlyDeleteEmail();
 
-  async function handleArchive() {
+  const isTrashed = Boolean(email?.deletedAt);
+  const isArchived = Boolean(email?.archived);
+
+  async function handleArchiveToggle() {
+    if (!email) return;
     try {
-      await archiveEmail.mutateAsync(emailId);
-      toast.success("Email archived");
+      await archiveEmail.mutateAsync({ id: emailId, archived: !isArchived });
+      toast.success(isArchived ? "Email restored to inbox" : "Email archived");
       onClose();
     } catch (err) {
-      toast.error(getApiErrorMessage(err, "Could not archive this email"));
+      toast.error(getApiErrorMessage(err, "Could not update this email"));
     }
   }
 
-  async function handleDelete() {
-    if (!window.confirm("Delete this email? This can't be undone.")) return;
+  async function handleTrash() {
     try {
-      await deleteEmail.mutateAsync(emailId);
-      toast.success("Email deleted");
+      await trashEmail.mutateAsync({ id: emailId, deleted: true });
+      toast.success("Moved to Trash");
+      onClose();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Could not delete this email"));
+    }
+  }
+
+  async function handleRestoreFromTrash() {
+    try {
+      await trashEmail.mutateAsync({ id: emailId, deleted: false });
+      toast.success("Email restored");
+      onClose();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, "Could not restore this email"));
+    }
+  }
+
+  async function handlePermanentDelete() {
+    if (!window.confirm("Permanently delete this email? This can't be undone.")) return;
+    try {
+      await permanentlyDelete.mutateAsync(emailId);
+      toast.success("Email permanently deleted");
       onClose();
     } catch (err) {
       toast.error(getApiErrorMessage(err, "Could not delete this email"));
@@ -48,33 +73,66 @@ export function EmailDetailView({ emailId, onClose }: { emailId: string; onClose
           <span className="truncate">{email?.subject ?? "Email"}</span>
         </button>
         <div className="flex shrink-0 items-center gap-4">
-          <button
-            type="button"
-            aria-label={email?.starred ? "Unstar" : "Star"}
-            disabled={!email}
-            onClick={() => email && toggleStar.mutate({ id: emailId, starred: !email.starred })}
-            className={email?.starred ? "text-amber-400" : "text-zinc-300 hover:text-zinc-500"}
-          >
-            <Star className="h-[18px] w-[18px]" fill={email?.starred ? "currentColor" : "none"} />
-          </button>
-          <button
-            type="button"
-            aria-label="Archive"
-            disabled={!email || archiveEmail.isPending}
-            onClick={handleArchive}
-            className="text-zinc-300 hover:text-zinc-500 disabled:opacity-50"
-          >
-            <Archive className="h-[18px] w-[18px]" />
-          </button>
-          <button
-            type="button"
-            aria-label="Delete"
-            disabled={!email || deleteEmail.isPending}
-            onClick={handleDelete}
-            className="text-zinc-300 hover:text-red-500 disabled:opacity-50"
-          >
-            <Trash2 className="h-[18px] w-[18px]" />
-          </button>
+          {isTrashed ? (
+            <>
+              <button
+                type="button"
+                aria-label="Restore"
+                disabled={!email || trashEmail.isPending}
+                onClick={handleRestoreFromTrash}
+                className="text-zinc-300 hover:text-zinc-500 disabled:opacity-50"
+                title="Restore"
+              >
+                <RotateCcw className="h-[18px] w-[18px]" />
+              </button>
+              <button
+                type="button"
+                aria-label="Delete forever"
+                disabled={!email || permanentlyDelete.isPending}
+                onClick={handlePermanentDelete}
+                className="text-zinc-300 hover:text-red-500 disabled:opacity-50"
+                title="Delete forever"
+              >
+                <Trash2 className="h-[18px] w-[18px]" />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                aria-label={email?.starred ? "Unstar" : "Star"}
+                disabled={!email}
+                onClick={() => email && toggleStar.mutate({ id: emailId, starred: !email.starred })}
+                className={email?.starred ? "text-amber-400" : "text-zinc-300 hover:text-zinc-500"}
+              >
+                <Star className="h-[18px] w-[18px]" fill={email?.starred ? "currentColor" : "none"} />
+              </button>
+              <button
+                type="button"
+                aria-label={isArchived ? "Unarchive" : "Archive"}
+                disabled={!email || archiveEmail.isPending}
+                onClick={handleArchiveToggle}
+                className={isArchived ? "text-brand-600" : "text-zinc-300 hover:text-zinc-500"}
+                title={isArchived ? "Unarchive" : "Archive"}
+              >
+                {isArchived ? (
+                  <ArchiveRestore className="h-[18px] w-[18px]" />
+                ) : (
+                  <Archive className="h-[18px] w-[18px]" />
+                )}
+              </button>
+              <button
+                type="button"
+                aria-label="Delete"
+                disabled={!email || trashEmail.isPending}
+                onClick={handleTrash}
+                className="text-zinc-300 hover:text-red-500 disabled:opacity-50"
+                title="Move to Trash"
+              >
+                <Trash2 className="h-[18px] w-[18px]" />
+              </button>
+            </>
+          )}
           <div className="h-6 w-px bg-zinc-200" />
           {me && <Avatar src={me.avatarUrl} name={me.name} size={36} />}
         </div>

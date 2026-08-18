@@ -7,6 +7,9 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { EmailTable } from "@/components/dashboard/EmailTable";
 import { EmailDetailView } from "@/components/dashboard/EmailDetailView";
 import { ComposeOverlay } from "@/components/compose/ComposeOverlay";
+import type { Folder } from "@/types/api";
+
+const FOLDERS: Folder[] = ["scheduled", "sent", "archived", "deleted"];
 
 function DashboardContent() {
   const router = useRouter();
@@ -14,9 +17,10 @@ function DashboardContent() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [openEmailId, setOpenEmailId] = useState<string | null>(null);
 
-  const activeTab = searchParams.get("tab") === "sent" ? "sent" : "scheduled";
+  const tabParam = searchParams.get("tab");
+  const activeTab: Folder = FOLDERS.includes(tabParam as Folder) ? (tabParam as Folder) : "scheduled";
 
-  function setActiveTab(tab: "scheduled" | "sent") {
+  function setActiveTab(tab: Folder) {
     router.push(`/dashboard?tab=${tab}`);
   }
 

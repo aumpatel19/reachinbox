@@ -78,6 +78,7 @@ model Email {
   jobId         String
   starred       Boolean     @default(false)
   archived      Boolean     @default(false)
+  deletedAt     DateTime?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 

@@ -18,6 +18,8 @@ export interface Sender {
 
 export type EmailStatus = "SCHEDULED" | "PROCESSING" | "SENT" | "FAILED";
 
+export type Folder = "scheduled" | "sent" | "archived" | "deleted";
+
 export interface EmailRow {
   id: string;
   toAddress: string;
@@ -28,6 +30,8 @@ export interface EmailRow {
   previewUrl: string | null;
   campaignId: string;
   starred: boolean;
+  archived: boolean;
+  updatedAt: string;
 }
 
 export interface EmailDetail {
@@ -47,6 +51,7 @@ export interface EmailDetail {
   jobId: string;
   starred: boolean;
   archived: boolean;
+  deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
   sender: { email: string; name: string };

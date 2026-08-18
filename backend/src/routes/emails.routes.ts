@@ -1,13 +1,25 @@
 import { Router } from "express";
 import { z } from "zod";
-import { listEmails, getEmailById, setStarred, setArchived, deleteEmail } from "../services/emailService";
+import {
+  listEmails,
+  getEmailById,
+  setStarred,
+  setArchived,
+  setDeleted,
+  permanentlyDeleteEmail,
+  type Folder,
+} from "../services/emailService";
 import { validateBody } from "../middleware/validate";
 
 export const emailsRouter = Router();
 
+const FOLDERS: Folder[] = ["scheduled", "sent", "archived", "deleted"];
+
 emailsRouter.get("/", async (req, res, next) => {
   try {
-    const status = req.query.status === "sent" ? "sent" : "scheduled";
+    const status: Folder = FOLDERS.includes(req.query.status as Folder)
+      ? (req.query.status as Folder)
+      : "scheduled";
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
     const search = typeof req.query.search === "string" ? req.query.search : undefined;
@@ -64,6 +76,22 @@ emailsRouter.patch("/:id/archive", validateBody(archiveSchema), async (req, res,
   }
 });
 
+const trashSchema = z.object({ deleted: z.boolean() });
+
+emailsRouter.patch("/:id/trash", validateBody(trashSchema), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ error: { code: "BAD_REQUEST", message: "Missing id" } });
+      return;
+    }
+    const email = await setDeleted(id, req.body.deleted);
+    res.json({ data: email });
+  } catch (err) {
+    next(err);
+  }
+});
+
 emailsRouter.delete("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -71,7 +99,7 @@ emailsRouter.delete("/:id", async (req, res, next) => {
       res.status(400).json({ error: { code: "BAD_REQUEST", message: "Missing id" } });
       return;
     }
-    await deleteEmail(id);
+    await permanentlyDeleteEmail(id);
     res.json({ data: { ok: true } });
   } catch (err) {
     next(err);

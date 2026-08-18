@@ -5,6 +5,7 @@ import type {
   CreateCampaignResult,
   EmailDetail,
   EmailRow,
+  Folder,
   PaginatedResult,
   Sender,
   User,
@@ -55,7 +56,7 @@ export function useEmail(id: string | null) {
 }
 
 export interface UseEmailsParams {
-  status: "scheduled" | "sent";
+  status: Folder;
   page: number;
   search?: string;
 }
@@ -88,15 +89,26 @@ export function useToggleStar() {
 export function useArchiveEmail() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) =>
-      (await api.patch<{ data: EmailDetail }>(`/api/emails/${id}/archive`, { archived: true })).data.data,
+    mutationFn: async ({ id, archived }: { id: string; archived: boolean }) =>
+      (await api.patch<{ data: EmailDetail }>(`/api/emails/${id}/archive`, { archived })).data.data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["emails"] });
     },
   });
 }
 
-export function useDeleteEmail() {
+export function useTrashEmail() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, deleted }: { id: string; deleted: boolean }) =>
+      (await api.patch<{ data: EmailDetail }>(`/api/emails/${id}/trash`, { deleted })).data.data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["emails"] });
+    },
+  });
+}
+
+export function usePermanentlyDeleteEmail() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => (await api.delete(`/api/emails/${id}`)).data,
