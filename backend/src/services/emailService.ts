@@ -1,5 +1,6 @@
 import { prisma } from "../db/prisma";
 import { emailQueue } from "../queue/emailQueue";
+import type { MailAttachment } from "./mailer";
 import type { Prisma } from "@prisma/client";
 
 export type Folder = "scheduled" | "sent" | "archived" | "deleted";
@@ -110,10 +111,17 @@ export async function listEmails(params: ListEmailsParams): Promise<ListEmailsRe
 }
 
 export async function getEmailById(id: string) {
-  return prisma.email.findUnique({
+  const email = await prisma.email.findUnique({
     where: { id },
-    include: { sender: { select: { email: true, name: true } } },
+    include: {
+      sender: { select: { email: true, name: true } },
+      campaign: { select: { attachments: true } },
+    },
   });
+  if (!email) return null;
+
+  const { campaign, ...rest } = email;
+  return { ...rest, attachments: (campaign.attachments as MailAttachment[] | null) ?? [] };
 }
 
 export async function setStarred(id: string, starred: boolean) {

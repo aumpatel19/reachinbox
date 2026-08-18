@@ -34,6 +34,12 @@ export interface EmailRow {
   updatedAt: string;
 }
 
+export interface Attachment {
+  filename: string;
+  contentType: string;
+  content: string; // base64-encoded
+}
+
 export interface EmailDetail {
   id: string;
   campaignId: string;
@@ -55,6 +61,7 @@ export interface EmailDetail {
   createdAt: string;
   updatedAt: string;
   sender: { email: string; name: string };
+  attachments: Attachment[];
 }
 
 export interface PaginatedResult<T> {
@@ -72,6 +79,7 @@ export interface CreateCampaignInput {
   startAt: string;
   delayBetweenMs: number;
   hourlyLimit?: number;
+  attachments?: Attachment[];
 }
 
 export interface CreateCampaignResult {

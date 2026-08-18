@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ArrowLeft, Clock, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { ArrowLeft, Clock, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -10,8 +10,9 @@ import { RichTextEditor } from "./RichTextEditor";
 import { SendLaterPopover } from "./SendLaterPopover";
 import { useCreateCampaign, useCreateEtherealSender, useSenders } from "@/lib/queries";
 import { parseRecipientsFromFile, parseRecipientsFromText } from "@/lib/parseRecipients";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatFileSize } from "@/lib/format";
 import { getApiErrorMessage } from "@/lib/api";
+import { fileToAttachment, MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES, MAX_TOTAL_ATTACHMENT_BYTES } from "@/lib/attachments";
 
 const DEFAULT_DELAY_SECONDS = 2;
 const DEFAULT_HOURLY_LIMIT = 200;
@@ -34,6 +35,8 @@ export function ComposeOverlay({ onClose }: { onClose: () => void }) {
   const [startAt, setStartAt] = useState<Date | null>(null);
   const [sendLaterOpen, setSendLaterOpen] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   const effectiveSenderId = senderId || senders?.[0]?.id || "";
   const bodyText = bodyHtml.replace(/<[^>]*>/g, "").trim();
@@ -62,6 +65,31 @@ export function ComposeOverlay({ onClose }: { onClose: () => void }) {
     mergeRecipients(emails, invalidCount);
   }
 
+  function handleAttachmentSelect(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const incoming = Array.from(files);
+
+    if (attachedFiles.length + incoming.length > MAX_ATTACHMENTS) {
+      toast.error(`You can attach at most ${MAX_ATTACHMENTS} files`);
+      return;
+    }
+    const tooLarge = incoming.find((f) => f.size > MAX_ATTACHMENT_BYTES);
+    if (tooLarge) {
+      toast.error(`${tooLarge.name} is over the ${formatFileSize(MAX_ATTACHMENT_BYTES)} per-file limit`);
+      return;
+    }
+    const totalBytes = [...attachedFiles, ...incoming].reduce((sum, f) => sum + f.size, 0);
+    if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
+      toast.error(`Attachments can't exceed ${formatFileSize(MAX_TOTAL_ATTACHMENT_BYTES)} combined`);
+      return;
+    }
+    setAttachedFiles((prev) => [...prev, ...incoming]);
+  }
+
+  function removeAttachment(index: number) {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function handleCreateSender() {
     try {
       const sender = await createEtherealSender.mutateAsync(undefined);
@@ -76,6 +104,7 @@ export function ComposeOverlay({ onClose }: { onClose: () => void }) {
     if (!isValid) return;
     const effectiveStartAt = startAt ?? new Date(Date.now() + 5000);
     try {
+      const attachments = await Promise.all(attachedFiles.map(fileToAttachment));
       const result = await createCampaign.mutateAsync({
         senderId: effectiveSenderId,
         subject: subject.trim(),
@@ -84,6 +113,7 @@ export function ComposeOverlay({ onClose }: { onClose: () => void }) {
         startAt: effectiveStartAt.toISOString(),
         delayBetweenMs: Math.max(0, Math.round(delaySeconds * 1000)),
         hourlyLimit: hourlyLimit > 0 ? hourlyLimit : undefined,
+        attachments: attachments.length > 0 ? attachments : undefined,
       });
       toast.success(`Scheduled ${result.scheduled} email${result.scheduled === 1 ? "" : "s"}`);
       onClose();
@@ -106,6 +136,31 @@ export function ComposeOverlay({ onClose }: { onClose: () => void }) {
           Compose New Email
         </button>
         <div className="relative flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => attachmentInputRef.current?.click()}
+            aria-label="Attach files"
+            className={`relative flex h-9 w-9 items-center justify-center rounded-full ${
+              attachedFiles.length > 0 ? "text-brand-600 hover:bg-brand-50" : "text-zinc-400 hover:bg-zinc-100"
+            }`}
+          >
+            <Paperclip className="h-4 w-4" />
+            {attachedFiles.length > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand-600 text-[10px] font-medium text-white">
+                {attachedFiles.length}
+              </span>
+            )}
+          </button>
+          <input
+            ref={attachmentInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              handleAttachmentSelect(e.target.files);
+              e.target.value = "";
+            }}
+          />
           <button
             type="button"
             onClick={() => setSendLaterOpen((v) => !v)}
@@ -229,6 +284,24 @@ export function ComposeOverlay({ onClose }: { onClose: () => void }) {
             className="flex-1 bg-transparent py-1 text-sm text-zinc-800 placeholder-zinc-400 outline-none"
           />
         </div>
+
+        {attachedFiles.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 py-3">
+            {attachedFiles.map((file, i) => (
+              <span
+                key={`${file.name}-${i}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-medium text-zinc-700"
+              >
+                <Paperclip className="h-3 w-3 text-zinc-400" />
+                {file.name}
+                <span className="text-zinc-400">({formatFileSize(file.size)})</span>
+                <button type="button" onClick={() => removeAttachment(i)} aria-label={`Remove ${file.name}`}>
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-8 py-4">
           <label className="flex items-center gap-3 text-sm text-zinc-700">

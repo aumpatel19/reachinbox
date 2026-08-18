@@ -4,15 +4,32 @@ import { env } from "../config/env";
 import { addEmailJobs } from "../queue/emailQueue";
 import { dedupeRecipients } from "./recipients";
 
-export const createCampaignSchema = z.object({
-  senderId: z.string().uuid(),
-  subject: z.string().min(1).max(200),
-  body: z.string().min(1).max(50_000),
-  recipients: z.array(z.string().email()).min(1).max(10_000),
-  startAt: z.string().datetime(),
-  delayBetweenMs: z.number().int().min(0),
-  hourlyLimit: z.number().int().min(1).max(10_000).optional(),
+const MAX_ATTACHMENT_BASE64_LEN = 8_000_000; // ~6MB decoded, per file
+const MAX_TOTAL_ATTACHMENT_BASE64_LEN = 15_000_000; // ~11MB decoded, combined
+
+const attachmentSchema = z.object({
+  filename: z.string().min(1).max(255),
+  contentType: z.string().min(1).max(255),
+  content: z.string().min(1).max(MAX_ATTACHMENT_BASE64_LEN),
 });
+
+export const createCampaignSchema = z
+  .object({
+    senderId: z.string().uuid(),
+    subject: z.string().min(1).max(200),
+    body: z.string().min(1).max(50_000),
+    recipients: z.array(z.string().email()).min(1).max(10_000),
+    startAt: z.string().datetime(),
+    delayBetweenMs: z.number().int().min(0),
+    hourlyLimit: z.number().int().min(1).max(10_000).optional(),
+    attachments: z.array(attachmentSchema).max(5).optional(),
+  })
+  .refine(
+    (data) =>
+      (data.attachments ?? []).reduce((sum, a) => sum + a.content.length, 0) <=
+      MAX_TOTAL_ATTACHMENT_BASE64_LEN,
+    { message: "Attachments are too large (11MB combined limit)", path: ["attachments"] },
+  );
 
 export type CreateCampaignInput = z.infer<typeof createCampaignSchema>;
 
@@ -51,6 +68,7 @@ export async function createCampaign(
         delayBetweenMs: effectiveDelayMs,
         hourlyLimit,
         totalRecipients: deduped.length,
+        attachments: input.attachments ?? undefined,
       },
     });
 

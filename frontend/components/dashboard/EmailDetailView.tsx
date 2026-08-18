@@ -1,10 +1,20 @@
 "use client";
 
 import { toast } from "sonner";
-import { ArrowLeft, Archive, ArchiveRestore, ExternalLink, Loader2, RotateCcw, Star, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Archive,
+  ArchiveRestore,
+  ExternalLink,
+  Loader2,
+  Paperclip,
+  RotateCcw,
+  Star,
+  Trash2,
+} from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { StatusBadge } from "@/components/ui/Badge";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatFileSize } from "@/lib/format";
 import { getApiErrorMessage } from "@/lib/api";
 import { useArchiveEmail, useEmail, useMe, usePermanentlyDeleteEmail, useToggleStar, useTrashEmail } from "@/lib/queries";
 
@@ -187,6 +197,27 @@ export function EmailDetailView({ emailId, onClose }: { emailId: string; onClose
               className="mt-6 whitespace-pre-wrap text-sm leading-relaxed text-zinc-800 [&_a]:text-brand-600 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-200 [&_blockquote]:pl-4 [&_blockquote]:text-zinc-500 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
               dangerouslySetInnerHTML={{ __html: email.body }}
             />
+
+            {email.attachments.length > 0 && (
+              <div className="mt-6 flex flex-wrap gap-3">
+                {email.attachments.map((att) => (
+                  <a
+                    key={att.filename}
+                    href={`data:${att.contentType};base64,${att.content}`}
+                    download={att.filename}
+                    className="flex w-44 items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 hover:bg-zinc-100"
+                  >
+                    <Paperclip className="h-4 w-4 shrink-0 text-zinc-400" />
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium text-zinc-800">{att.filename}</p>
+                      <p className="text-xs text-zinc-400">
+                        {formatFileSize(Math.round((att.content.length * 3) / 4))}
+                      </p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>

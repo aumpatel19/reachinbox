@@ -54,6 +54,7 @@ model Campaign {
   delayBetweenMs  Int
   hourlyLimit     Int?
   totalRecipients Int
+  attachments     Json?
   createdAt       DateTime @default(now())
 
   emails Email[]

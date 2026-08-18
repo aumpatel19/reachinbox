@@ -19,7 +19,9 @@ export function createApp() {
   const app = express();
 
   app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
-  app.use(express.json({ limit: "2mb" }));
+  // 15mb accommodates base64-encoded email attachments (see campaignService's
+  // own tighter per-file/total caps, which produce a clearer 400 than a bare 413).
+  app.use(express.json({ limit: "15mb" }));
   app.use(sessionMiddleware);
   app.use(passport.initialize());
   app.use(passport.session());

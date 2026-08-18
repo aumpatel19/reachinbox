@@ -3,7 +3,7 @@ import { env } from "../config/env";
 import { logger } from "../config/logger";
 import { createRedisConnection } from "../redis/client";
 import { prisma } from "../db/prisma";
-import { sendEmail } from "../services/mailer";
+import { sendEmail, type MailAttachment } from "../services/mailer";
 import { checkHourlyRateLimit } from "../services/rateLimiter";
 import { acquireSendLock } from "../services/sendLock";
 import type { EmailJobData } from "../types";
@@ -56,7 +56,8 @@ async function processEmailJob(job: Job<EmailJobData>, token?: string): Promise<
   }
 
   try {
-    const result = await sendEmail(email.sender, email.toAddress, email.subject, email.body);
+    const attachments = (email.campaign.attachments as MailAttachment[] | null) ?? undefined;
+    const result = await sendEmail(email.sender, email.toAddress, email.subject, email.body, attachments);
     // updateMany (not update): the row may have been deleted while the send
     // was in flight -- that's a no-op here, not an error to surface.
     await prisma.email.updateMany({
