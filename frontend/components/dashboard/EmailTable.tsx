@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, Inbox, RefreshCcw, Search, AlertTriangle } from "lucide-react";
+import { Star, Inbox, RefreshCcw, Search, AlertTriangle } from "lucide-react";
 import { Table, type Column } from "@/components/ui/Table";
 import { StatusBadge } from "@/components/ui/Badge";
 import { SkeletonRows } from "@/components/ui/Skeleton";
@@ -64,7 +64,7 @@ export function EmailTable({ variant, onCompose, onOpenEmail }: EmailTableProps)
           }}
           className="text-zinc-300 hover:text-zinc-500"
         >
-          <Eye className="h-[18px] w-[18px]" />
+          <Star className="h-[18px] w-[18px]" />
         </button>
       ),
     },
