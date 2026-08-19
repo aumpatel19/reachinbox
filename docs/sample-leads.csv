@@ -1,0 +1,11 @@
+name,email
+Alice Johnson,alice@example.com
+Bob Martinez,bob@example.com
+Carol White,carol@example.com
+David Kim,david@example.com
+Emma Davis,emma@example.com
+Frank Moore,frank@example.com
+Grace Lee,grace@example.com
+Henry Patel,henry@example.com
+Broken Row,not-an-email
+Alice Again,alice@example.com
