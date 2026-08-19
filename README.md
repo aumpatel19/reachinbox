@@ -368,4 +368,13 @@ Because the frontend and backend are on different domains in this setup, the ses
 
 ## Demo video
 
-_TODO: add the ≤5 minute walkthrough link here (login → compose → restart survival → rate limiting → empty/error states)._
+**▶ [Watch the walkthrough (Loom)](https://www.loom.com/share/22bbcfd075b94d31a397f24d21b03bf2)**
+
+The walkthrough covers:
+
+- **Google login** → dashboard with user name, email, and avatar
+- **Compose** — picking between multiple Ethereal senders, uploading a leads CSV (with the detected / skipped counts), and setting start time, per-send delay, and hourly limit
+- **Scheduled emails** listed with their staggered send times
+- **Restart survival** — stopping both the API and the worker, restarting them, and the previously scheduled emails still sending at their original times (with the boot-reconciliation log line visible)
+- **Sent emails**, including opening a real Ethereal preview of a delivered message
+- **Rate limiting** — an over-limit batch where some send and the remainder are deferred into the next hour window rather than dropped or failed
