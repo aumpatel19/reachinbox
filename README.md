@@ -56,6 +56,51 @@ The API server (`npm run dev`) and the worker (`npm run worker`) are **separate 
 
 ---
 
+## Features implemented
+
+Mapped to the assignment's requirements, with links to the detailed sections.
+
+### Backend
+
+| Requirement | Status | Where |
+|---|---|---|
+| Accept email scheduling requests via API | ✅ | `POST /api/campaigns` — [API reference](#api-reference) |
+| Store in a relational DB | ✅ | PostgreSQL + Prisma (`User`, `Sender`, `Campaign`, `Email`) |
+| Schedule via BullMQ delayed jobs — **no cron** | ✅ | [How scheduling works](#how-scheduling-works-post-apicampaigns) |
+| Send from **multiple senders** via Ethereal SMTP | ✅ | `Sender` table, per-sender cached nodemailer transporters; 2 senders seeded by default |
+| Survive restart — future emails still send on time | ✅ | [Persistence on restart](#persistence-on-restart) |
+| Not duplicated / not restarted from scratch | ✅ | [Idempotency](#idempotency) — 3 layers |
+| Configurable worker concurrency, parallel-safe | ✅ | `WORKER_CONCURRENCY`; no shared mutable state |
+| Minimum delay between sends, documented | ✅ | Per-sender Redis lock, default **2s** — [Rate limiting](#rate-limiting-delay--concurrency) |
+| Emails-per-hour limit, configurable via env | ✅ | `MAX_EMAILS_PER_HOUR_PER_SENDER`, Redis counter keyed by `sender + hourWindow` |
+| Rate limit safe across multiple workers/instances | ✅ | Atomic Redis ops, no in-memory counters |
+| On limit hit: delay/reschedule to next window, keep order, never drop | ✅ | Overflow index preserves FIFO order; status stays `SCHEDULED`, never `FAILED` |
+| Documented behavior for 1000+ emails at once | ✅ | [Worked example](#rate-limiting-delay--concurrency) |
+| Idempotency — never send the same email twice | ✅ | jobId + atomic claim + `@@unique([campaignId, toAddress])` |
+
+### Frontend
+
+| Requirement | Status | Notes |
+|---|---|---|
+| Real Google OAuth, redirect to dashboard | ✅ | `passport-google-oauth20` + Redis-backed sessions (survive restart) |
+| Show user name, email, avatar + logout | ✅ | In the sidebar — see the note below |
+| Dashboard with Scheduled / Sent sections | ✅ | Plus Archived + Deleted (beyond the brief) |
+| "Compose New Email" entry point | ✅ | Full-screen compose overlay |
+| Compose: subject, body | ✅ | Subject + lightweight rich-text body editor |
+| Compose: upload CSV/text of leads, show detected count | ✅ | papaparse; shows "N detected · K invalid/duplicate skipped" |
+| Compose: start time, delay between emails, hourly limit | ✅ | "Send Later" popover for start time; numeric delay + hourly-limit inputs |
+| Schedule button → backend schedule API | ✅ | Toast on success/error, table refreshes |
+| Scheduled table: email, subject, scheduled time, status | ✅ | + search, sort, pagination |
+| Sent table: email, subject, sent time, status (sent/failed) | ✅ | + Ethereal preview link per row |
+| Loading states | ✅ | Skeleton rows, not just a spinner |
+| Empty states | ✅ | Per-folder copy + Compose CTA |
+| Error handling | ✅ | Toasts + inline retry; "server unreachable" is distinguished from "logged out" |
+| Clean structure, reusable components, DRY, TypeScript | ✅ | `components/ui/*` primitives; every API response typed in `types/api.ts`; `strict: true`, no `any` |
+
+**One deliberate deviation:** the assignment text says user info goes in a *top header*, but the provided Figma places it in the **left sidebar** — and the assignment also says layout should "closely follow the Figma design". Figma was treated as the tiebreaker, so name/email/avatar and logout live in the sidebar. Everything the requirement asks for is present, just positioned per the design.
+
+---
+
 ## Architecture
 
 ```mermaid
